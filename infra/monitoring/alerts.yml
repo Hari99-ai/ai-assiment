@@ -1,0 +1,25 @@
+groups:
+  - name: amrutam
+    rules:
+      - alert: HighErrorRate
+        expr: sum(rate(amrutam_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(amrutam_http_requests_total[5m])), 0.001) > 0.01
+        for: 5m
+        labels: {severity: critical}
+      - alert: ReadLatency
+        expr: histogram_quantile(0.95, sum by(le)(rate(amrutam_http_seconds_bucket{method="GET"}[5m]))) > 0.2
+        for: 10m
+      - alert: WriteLatency
+        expr: histogram_quantile(0.95, sum by(le)(rate(amrutam_http_seconds_bucket{method="POST"}[5m]))) > 0.5
+        for: 10m
+      - alert: DatabasePoolExhaustion
+        expr: amrutam_db_checked_out > 18
+        for: 2m
+      - alert: BookingConflicts
+        expr: sum(rate(amrutam_booking_total{result="conflict"}[5m])) / clamp_min(sum(rate(amrutam_booking_total[5m])), 0.001) > 0.2
+        for: 5m
+      - alert: OutboxBacklog
+        expr: amrutam_outbox_backlog > 1000
+        for: 5m
+      - alert: PaymentFailures
+        expr: sum(rate(amrutam_payment_total{result="failure"}[5m])) > 0.1
+        for: 5m

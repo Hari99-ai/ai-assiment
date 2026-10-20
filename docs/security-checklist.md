@@ -1,0 +1,7 @@
+# Security control evaluation
+
+Verified locally by automated tests: password hashing; normalized unique identities; extra-field rejection for role escalation; expiring signed JWT construction; refresh rotation and family revocation; MFA enrollment, replay prevention and one-use recovery; logout/reset revocation; patient/clinician ownership; administrator MFA boundary; encrypted prescriptions; invalid/duplicate webhooks; invalid state rejection; idempotency and slot contention; limiter rejection/fail-closed behavior.
+
+Implemented but requiring service/deployment verification: PostgreSQL exclusion and immutable-history triggers; actual Redis limiting/cache; Celery broker redelivery; OTLP export; monitoring/alert delivery; TLS at ingress and data stores; cloud KMS and secret injection; least-privilege database grants; backup/restore; production pod/network controls. SQLite passing tests do not establish these controls.
+
+Before production: independent penetration test; account-level abuse defenses and trusted proxy policy; MFA setup recovery policy; authenticated email/SMS delivery; email/phone verification; consent and privacy-rights handling; medical retention/legal holds; practitioner verification process; payment provider certification/reconciliation; encryption-key rotation; external immutable audit archive; security on-call and incident exercises. Never use demo identities or development secrets with real patient data.

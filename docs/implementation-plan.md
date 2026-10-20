@@ -1,0 +1,9 @@
+# Implementation plan and assumptions
+
+The repository was empty. Build a Python 3.12 modular monolith with synchronous SQLAlchemy transactions, PostgreSQL as the deployment database, and Redis/Celery as supporting infrastructure. SQLite is an explicit local fallback, not evidence of PostgreSQL correctness. No public registration can grant privileged roles. Clinicians apply as patients; an MFA-authenticated administrator verifies credentials and grants the doctor role.
+
+Sequence: configuration/models/migrations; identity and MFA; doctor scheduling; transactional booking and idempotency; clinical lifecycle and versioned prescriptions; mock payments and compensation; durable jobs; metrics and tracing; deployment references; tests and operational documentation. Each phase is validated with executable checks. The verification report records actual outcomes.
+
+Assumptions: India is the candidate deployment jurisdiction; INR is the sole payment currency; clients send timezone-aware dates; the server stores UTC. A slot represents one doctor's single consultation, at most four hours. Availability rules are represented by explicit concrete slots; no recurring-rule generator is claimed. Patients cancel at least two hours before start; assigned verified doctors can cancel before the session starts. Unpaid bookings expire after 15 minutes. No video transport, clinical decision engine, real payment provider, or real email/SMS delivery is included.
+
+Public profile caches may remain stale for 30 seconds; authoritative scheduling and verification are always checked in the database. Medical access is limited to the patient and assigned verified doctor; administrative status alone is insufficient. Bootstrap administrators are an operator responsibility, not a public API. Demo seeding is disabled in production.
