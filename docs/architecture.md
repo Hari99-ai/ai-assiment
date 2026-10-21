@@ -1,8 +1,20 @@
-# Architecture
+# Amrutam Telemedicine Backend — Architecture
 
-## Overview and decisions
+**Scope:** implemented backend and deployment design for the engineering assignment.  
+**Format:** three page-sized sections with print page-break markers; final pagination depends on the Markdown renderer and print settings.  
+**Status:** locally verified application workflows; production infrastructure and service-level objectives require runtime validation.
+
+## 1. System design and request flow
 
 Amrutam is a modular FastAPI application with service boundaries for identity, users, doctors/availability, consultations, prescriptions, payments, analytics and audit. Thin API handlers validate Pydantic input and inject a SQLAlchemy repository and service adapters. A Celery worker handles durable outbox events and a single beat scheduler runs publication and reconciliation. PostgreSQL is authoritative; Redis provides fixed-window authentication rate limiting, public-profile caching and the initial job broker. SQLite supports a deliberately smaller local execution environment.
+
+| Component | Responsibility / source |
+|---|---|
+| HTTP boundary | Versioned routes and authorization dependencies: `app/api/v1`, `app/dependencies.py` |
+| Domain layer | Identity, scheduling, clinical and payment rules: `app/modules` |
+| Persistence | SQLAlchemy models/repository and Alembic migrations: `app/db` |
+| Shared infrastructure | Settings, security, Redis and telemetry: `app/core`, `app/observability` |
+| Background processing | Outbox publication, consumption and reconciliation: `app/workers` |
 
 A modular monolith keeps booking, audit, state history and outbox changes in one ACID transaction. Extract notifications first if independently measured queue throughput or operational ownership warrants it. Extract search only when indexed PostgreSQL queries repeatedly miss latency budgets despite tuning. Extract booking only after profiling proves a separate scaling boundary; preserve one authoritative reservation database. Folder count alone does not justify services.
 
@@ -13,7 +25,8 @@ flowchart LR
   Services --> Repository[SQLAlchemy repository]
   Repository --> PG[(PostgreSQL)]
   API --> Redis[(Redis cache and limiter)]
-  Beat[Celery beat] --> Publisher[Outbox publisher]
+  Beat[Celery beat] -->|Scheduled tasks| Redis
+  Redis --> Publisher[Outbox publisher]
   Publisher --> PG
   Publisher --> Redis
   Redis --> Worker[Celery consumer]
@@ -24,7 +37,7 @@ flowchart LR
   API -->|OTLP| Jaeger
 ```
 
-## Request and event flow
+### Request and event flow
 
 Authentication validates signed, expiring JWTs and checks the associated durable refresh session on every request. Refresh rotation revokes the old session; reuse revokes its family. Logout and password reset revoke sessions immediately. MFA enrollment encrypts the TOTP secret and verification consumes a timestep atomically. One-use recovery hashes provide a recovery path. Privileged routes require both an enabled MFA configuration and an MFA-authenticated session.
 
@@ -52,7 +65,11 @@ sequenceDiagram
 
 The unique idempotency key serializes simultaneous duplicate requests. On a unique-key failure, the service rolls back and reloads the committed response, rejecting a different fingerprint. A partial unique index independently prohibits multiple active consultations for a slot. No Redis lock participates in booking correctness. Failed transactions release both the reservation and idempotency insertion. Responses contain no plaintext medical data in the idempotency table.
 
-## Data relationships
+<div style="page-break-after: always; break-after: page;"></div>
+
+## 2. Data, security and consistency
+
+### Data relationships
 
 ```mermaid
 erDiagram
@@ -75,7 +92,9 @@ erDiagram
 
 All primary IDs are UUID strings. Foreign keys default to restrictive deletion to protect history. Fee and medication inputs are bounded. Prescription bodies, reasons, MFA secrets and professional credentials use authenticated Fernet encryption; database volume encryption covers other personal fields. Audit logs never contain medical payloads or credentials. PostgreSQL triggers reject changes to audit, consultation history and prescription revision rows. A database owner can bypass these controls: operational separation and external immutable archival remain necessary.
 
-## State machine, payments and compensation
+Passwords use Argon2 hashing. Medical-record authorization requires the patient or assigned verified clinician; administrative privilege does not grant arbitrary clinical-record access. Prescription issuance and revision require the assigned verified doctor and a consultation in progress or completed. Every prescription revision preserves an encrypted historical version. Production configuration rejects development secrets and requires PostgreSQL, required Redis and a valid encryption key. TLS termination, managed secret injection, volume encryption and least-privilege database accounts remain deployment responsibilities. See [data classification](data-model.md) and [threat model](threat-model.md).
+
+### State machine, payments and compensation
 
 `BOOKED → CONFIRMED → IN_PROGRESS → COMPLETED`. Only a valid successful payment confirms a booking. The assigned doctor starts within the scheduled interval and then completes it. Cancellation is allowed from booked/confirmed; an unpaid booking can become expired or payment-failed. Terminal states cannot return to active states. Completed consultations retain their slot reservation.
 
@@ -83,7 +102,7 @@ Payment creation is naturally idempotent per consultation. The provider abstract
 
 The booking/payment saga reserves first, creates a payment intent, then confirms from a verified event. Failure or expiry releases the slot. Cancellation after payment creates a durable refund event; the worker records a mock refund. A delayed success after expiry/cancellation schedules compensation rather than resurrecting the reservation. Contradictory provider terminal events require investigation; a real adapter must add provider polling and operator reconciliation before money is accepted.
 
-## Reliability and caching
+### Reliability and caching
 
 Outbox delivery is at least once. Publication happens before marking published, so crashes can duplicate delivery. Consumer event IDs are unique in the database. Worker acknowledgements occur after processing; bounded exponential retry uses jitter. Unconsumed events older than ten minutes are eligible for republication. Reservations expire in batches of 100 once per minute. Notification jobs form a local durable inbox; external delivery and its own idempotency contract are intentionally pending.
 
@@ -91,7 +110,15 @@ Redis limiter failure returns 503 when Redis is required. Cache failure falls ba
 
 Connection pools permit 10 steady plus 10 overflow connections per process, with five-second pool acquisition and statement deadlines and a three-second lock deadline. At ten replicas the worst case is 200 API connections, excluding workers: budget this against the RDS limit and add PgBouncer before scaling beyond it. Liveness has no dependency checks; readiness checks PostgreSQL and required Redis. Processes dispose connections at shutdown; Kubernetes grants 45 seconds for draining.
 
-## Capacity, observability and recovery
+<div style="page-break-after: always; break-after: page;"></div>
+
+## 3. Deployment, capacity and operational readiness
+
+### Deployment topology
+
+Docker Compose separates API, migration, Celery worker and single beat scheduler processes alongside PostgreSQL, Redis, Prometheus, Grafana and Jaeger. Migrations precede application startup; the API does not create tables. Kubernetes references provide separate workloads, a migration job, probes, resource limits, rolling updates and API autoscaling from two to ten replicas. AWS references target Mumbai with private EKS and multi-AZ PostgreSQL/Redis. Deployment requires a configured account, managed secrets, TLS ingress and network policies. See [deployment and rollback](deployment.md).
+
+### Capacity, observability and recovery
 
 100,000 consultations/day averages 1.16 bookings/sec. Assuming 30 API calls per consultation gives 3 million calls/day, or 34.7 RPS average. A 10x peak implies about 347 RPS and 12 booking writes/sec, with separate 100-way contention bursts. Assume 90% reads, 5 KB per consultation plus indexes/history (~1 GB/day before prescriptions/audit) and 60% public-profile cache hits; these are sizing inputs, not measurements. Archive old outbox/reset data and consider monthly consultation/audit partitioning only after index growth and query plans justify a migration. Do not partition away global reservation uniqueness.
 
@@ -100,3 +127,9 @@ HTTP counters and latency histograms label route templates, methods and status, 
 Target availability is 99.95% (roughly 22 minutes/month), with multi-AZ compute/database, private dependencies and rolling updates. RDS retains 35 days for PITR. Objectives: database RPO ≤5 minutes, RTO ≤60 minutes for an AZ incident; regional recovery requires cross-region backup replication and tested key availability and is not implemented. Quarterly restore drills must verify medical decryption and audit consistency. See backup-and-recovery.md.
 
 Production gaps include jurisdiction-specific consent/retention workflows, external notifications, real payment reconciliation, managed secret injection, TLS ingress, pen testing, restore drills and measured load/SLO validation. Terraform passes local provider-schema validation; Terraform and Kubernetes remain deployment references until exercised against a configured account. No compliance certification or production capacity is asserted.
+
+### Validation evidence and scope limits
+
+The existing [verification report](verification-report.md) records 28 passing tests, two service-specific skips and 93% statement coverage in the prior SQLite run, together with local migration and tooling checks. These results were not rerun for this documentation edit. PostgreSQL constraints and immutability triggers, Redis broker crash/redelivery, Compose/Kubernetes runtime operation, collector export, cloud deployment, restore drills and target-scale performance still need execution.
+
+Real payments, external notification delivery, email/phone verification, recurring availability, video consultations, clinical decision support, consent/privacy-rights workflows and managed key rotation remain outside the implemented scope. Release readiness depends on closing relevant gaps and independently reviewing security and jurisdiction-specific obligations. Design rationale is recorded in the [modular monolith decision](decisions/0001-modular-monolith.md) and [encryption/session decision](decisions/0002-encryption-and-sessions.md).
