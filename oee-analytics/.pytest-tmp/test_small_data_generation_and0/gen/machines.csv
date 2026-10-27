@@ -1,0 +1,6 @@
+machine_id,line_id,name,ideal_cycle_seconds
+MACHINE-001,LINE-001,Machine 1,18
+MACHINE-002,LINE-002,Machine 2,19
+MACHINE-003,LINE-001,Machine 3,20
+MACHINE-004,LINE-002,Machine 4,21
+MACHINE-005,LINE-001,Machine 5,22
