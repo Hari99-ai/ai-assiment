@@ -1,3 +1,6 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pandas as pd
 from src.analytics.anomaly_detection import detect_anomalies,evaluate
 from src.generator.generate import generate
