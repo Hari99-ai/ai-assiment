@@ -1,0 +1,24 @@
+schema_version: "1.0"
+default_seed: 20261022
+break_policy: exclude_from_planned_time
+changeover_policy: included_downtime
+counts_and_inspections: separate_minimums
+scales:
+  small:
+    plants: 1
+    lines: 2
+    machines: 5
+    products: 5
+    days: 7
+    state_events: 2500
+    production_counts: 3000
+    quality_inspections: 3000
+  full:
+    plants: 1
+    lines: 5
+    machines: 30
+    products: 20
+    days: 90
+    state_events: 100000
+    production_counts: 500000
+    quality_inspections: 500000

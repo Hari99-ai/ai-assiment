@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*.sqlite
+*.db
+data/generated/*
+data/reports/*
+!data/generated/.gitkeep
+!data/reports/.gitkeep

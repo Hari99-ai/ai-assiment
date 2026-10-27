@@ -1,3 +1,0 @@
-# ADR 0002: application encryption and durable sessions
-
-Accepted. Fernet authenticated encryption protects medical payloads, TOTP seeds and doctor credentials using an environment-injected key. Argon2id protects passwords; SHA256 hashes protect high-entropy random refresh/reset/recovery tokens. Short JWT access tokens reference durable session records, allowing immediate logout/reuse revocation at the cost of a database lookup. Production requires separate high-entropy JWT/webhook/encryption secrets; development key derivation is explicitly unsuitable for production. Multi-key rotation and managed injection need deployment work.

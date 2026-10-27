@@ -1,0 +1,12 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS Plant(plant_id TEXT PRIMARY KEY,name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS Line(line_id TEXT PRIMARY KEY,plant_id TEXT NOT NULL REFERENCES Plant(plant_id),name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS Machine(machine_id TEXT PRIMARY KEY,line_id TEXT NOT NULL REFERENCES Line(line_id),name TEXT NOT NULL,ideal_cycle_seconds INTEGER NOT NULL CHECK(ideal_cycle_seconds>0));
+CREATE TABLE IF NOT EXISTS Shift(shift_id TEXT PRIMARY KEY,report_date TEXT NOT NULL,code TEXT NOT NULL,start_hour INTEGER NOT NULL,duration_minutes INTEGER NOT NULL,break_minutes INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS Product(product_id TEXT PRIMARY KEY,name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS DowntimeReason(reason_id TEXT PRIMARY KEY,code TEXT UNIQUE NOT NULL,planned INTEGER NOT NULL CHECK(planned IN (0,1)));
+CREATE TABLE IF NOT EXISTS ProductionOrder(order_id TEXT PRIMARY KEY,machine_id TEXT NOT NULL REFERENCES Machine(machine_id),product_id TEXT NOT NULL REFERENCES Product(product_id),shift_id TEXT NOT NULL REFERENCES Shift(shift_id),status TEXT NOT NULL,ideal_cycle_seconds INTEGER NOT NULL CHECK(ideal_cycle_seconds>0));
+CREATE TABLE IF NOT EXISTS StateEvent(event_id TEXT PRIMARY KEY,machine_id TEXT NOT NULL REFERENCES Machine(machine_id),state TEXT NOT NULL,start_ts TEXT NOT NULL,end_ts TEXT NOT NULL,source TEXT NOT NULL,reason_code TEXT);
+CREATE TABLE IF NOT EXISTS ProductionCount(count_id TEXT PRIMARY KEY,order_id TEXT NOT NULL REFERENCES ProductionOrder(order_id),machine_id TEXT NOT NULL REFERENCES Machine(machine_id),timestamp TEXT NOT NULL,quantity INTEGER NOT NULL,count_type TEXT NOT NULL,correction_of TEXT);
+CREATE TABLE IF NOT EXISTS QualityInspection(inspection_id TEXT PRIMARY KEY,order_id TEXT NOT NULL REFERENCES ProductionOrder(order_id),product_id TEXT NOT NULL REFERENCES Product(product_id),machine_id TEXT NOT NULL REFERENCES Machine(machine_id),timestamp TEXT NOT NULL,inspected_qty INTEGER NOT NULL,accepted_qty INTEGER NOT NULL,rejected_qty INTEGER NOT NULL,status TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS OEEAggregate(aggregate_id TEXT PRIMARY KEY,scope_type TEXT NOT NULL,scope_id TEXT NOT NULL,report_date TEXT NOT NULL,shift_id TEXT,planned_minutes REAL,operating_minutes REAL,total_production REAL,good_production REAL,availability REAL,performance REAL,quality REAL,oee REAL,status TEXT NOT NULL,algorithm_version TEXT NOT NULL,UNIQUE(scope_type,scope_id,report_date,shift_id));

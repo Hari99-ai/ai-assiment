@@ -1,0 +1,5 @@
+# Validation and evaluation
+
+The pipeline structurally loads and evaluates generated CSVs, checks event intervals for overlap, checks negative counts, scrap above inspected quantity, and compares order cycle time against its synthetic reference. Five injected scenarios have distinct stable labels in `ground_truth.csv`; outputs are compared after detection. `evaluation_report.json` reports counts and per-type precision/recall/F1. Overlap logic is source-driven and does not use labels.
+
+The latest small run (seed 20261022) checked 8,577 records, detected the five injected cases, and returned 5 detections for 5 ground-truth cases. The four test cases passed. Detection metrics in the report use issue-type presence as the scoring unit, so multiple unexpected detections of a known type are not yet counted as false positives. The current summary's structural pass/fail counters are preliminary, not a complete column-by-column validation. Full-scale row totals follow `config/config.yaml`; full-scale execution and resource measurements have not been performed.

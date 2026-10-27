@@ -1,0 +1,6 @@
+anomaly_id,issue_type,entity_type,entity_id,related_record_ids,injection_rule,expected_detection,severity,resolution_status
+ANOM-001,OVERLAPPING_STATES,StateEvent,MACHINE-001,EVT-MACHINE-001-000001|EVT-MACHINE-002-000002,interval_overlap,overlap detected,HIGH,OPEN
+ANOM-002,INVALID_COUNT_DECREASE,ProductionCount,PO-2026-000592,CNT-PO-2026-000592-000001,negative_delta_without_correction,invalid count flagged,HIGH,OPEN
+ANOM-003,SCRAP_EXCEEDS_INSPECTED,QualityInspection,PO-2026-000052,QC-2026-000000001,rejected_gt_inspected,quality metric withheld,HIGH,OPEN
+ANOM-004,WRONG_IDEAL_CYCLE_TIME,ProductionOrder,PO-2026-000001,PO-2026-000001,known_reference_mismatch,review against independent master,MEDIUM,OPEN
+ANOM-005,DOWNTIME_OVERLAPS_BREAK,StateEvent,MACHINE-003,EVT-MACHINE-003-000003,intersection_with_break_window,exclude break time from denominator,LOW,OPEN
